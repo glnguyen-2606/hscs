@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculate COSφ</title>
+  <style>
+    /* --- Reset & Basic --- */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: calc(14px + 0.2vw); height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      background-color: #dce4e8; display: flex; justify-content: center; align-items: center;
+      min-height: 100%; padding: 5px;
+      overflow: hidden; /* Prevent body scroll when keypad shows */
+    }
+    /* --- Main Wrapper --- */
+    .calculator-wrapper {
+      background-color: #f8f9fa; border: 1px solid #ced4da; border-radius: 8px;
+      overflow: hidden; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+      width: 100%; max-width: 400px; display: flex; flex-direction: column;
+      height: calc(100vh - 10px); max-height: 800px;
+    }
+
+    /* --- Content Area --- */
+    .content-area {
+        background-color: #f8f9fa; padding: 15px 12px 10px; flex-grow: 1;
+        overflow-y: auto;
+        position: relative;
+        min-height: 0; /* Important for flex-grow in flex-column */
+    }
+
+    /* --- Input Grid Area --- */
+    .input-grid-container {
+        margin-bottom: 15px;
+    }
+    .input-grid-fieldset {
+        border: 1px solid #ced4da; border-radius: 6px; padding: 10px 12px 12px;
+        background-color: #fff;
+    }
+    .input-grid-fieldset legend {
+        font-weight: 600; color: #495057; padding: 0 5px; margin-left: 5px;
+        font-size: 0.95rem; background-color: #fff;
+    }
+    .input-grid-row {
+        display: grid;
+        grid-template-columns: 40px 1fr 1fr; /* Adjusted columns */
+        gap: 8px; /* Slightly increased gap */
+        align-items: center;
+        margin-bottom: 8px;
+    }
+     .input-grid-row:last-child { margin-bottom: 0; }
+    .input-grid-label {
+      font-weight: 500; color: #495057; font-size: 0.9rem; text-align: right;
+      padding-right: 5px;
+      cursor: default; /* Labels aren't directly interactive usually */
+    }
+    .input-grid-input {
+      width: 100%;
+      padding: 5px 8px; text-align: right; border: 1px solid #ced4da;
+      border-radius: 4px; transition: all 0.1s ease; vertical-align: middle;
+      background-color: #e9ecef;
+      cursor: pointer;
+      font-size: 0.9rem; font-weight: 500;
+      /* Ensure input height matches label line-height implicitly */
+      line-height: normal;
+    }
+    .input-grid-input:focus, .input-grid-input.input-focused {
+      border-color: #0056b3;
+      box-shadow: 0 0 0 2px rgba(0, 86, 179, 0.3);
+      outline: none;
+      background-color: #e7f3ff;
+    }
+    .input-grid-input.input-error {
+        background-color: #f8d7da !important;
+        border-color: #f5c6cb !important;
+    }
+    .input-grid-input::placeholder {
+       font-style: italic; color: #6c757d; font-size: 0.8rem; font-weight: 400;
+    }
+
+    /* --- Result Display Area --- */
+    #calculationResults {
+      background-color: #e9ecef; border: 1px solid #ced4da; padding: 10px 12px;
+      border-radius: 6px; margin-top: 10px; min-height: 60px;
+      display: none; /* Initially hidden */
+      flex-direction: column; align-items: flex-start;
+      justify-content: center; text-align: left;
+      color: #212529; font-size: 0.9rem; overflow-wrap: break-word;
+      word-break: break-all; line-height: 1.6;
+    }
+     .result-line { display: block; width: 100%; margin-bottom: 4px; font-weight: 500; }
+     .result-line:last-child { margin-bottom: 0; }
+     .result-label { display: inline-block; width: 70px; font-weight: 600; color: #495057;}
+     .result-value { font-weight: bold; color: #0056b3; }
+     .result-unit { font-size: 0.85rem; color: #6c757d; padding-left: 4px;}
+     /* CSS for special Cos Phi line */
+     .cosphi-line { display: flex; flex-wrap: wrap; align-items: baseline; }
+     .cosphi-label { font-weight: 600; color: #495057; margin-right: 5px; flex-shrink: 0; }
+     .cosphi-expression { font-size: 0.85rem; color: #6c757d; margin-right: 5px; word-break: break-all; }
+     .cosphi-equals { font-weight: 600; color: #495057; margin-right: 5px; }
+     .cosphi-result { font-weight: bold; color: #155724; }
+
+    #calculationResults .error-message {
+        color: #dc3545; font-weight: 500; font-size: 0.9rem;
+        text-align: center; width: 100%; display: block;
+        padding: 5px 0; /* Add some padding to error message */
+    }
+
+
+    /* --- Custom Keypad --- */
+    .keypad-container {
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      height: 35%; /* Keypad height relative to wrapper */
+      grid-template-rows: repeat(4, 1fr); /* Equal height rows */
+      gap: 6px;
+      padding: 10px;
+      background-color: #ced4da;
+      flex-shrink: 0; /* Prevent shrinking */
+      border-top: 1px solid #adb5bd;
+    }
+    .keypad-button {
+      padding: 5px;
+      font-size: 1.1rem;
+      font-weight: 500; text-align: center;
+      border: none; border-radius: 5px; background-color: #f8f9fa; color: #343a40;
+      cursor: pointer; box-shadow: 0 2px 3px rgba(0,0,0,0.1);
+      transition: background-color 0.1s ease;
+      display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: rgba(0,0,0,0.05); /* Better mobile tap feedback */
+    }
+    .keypad-button:active { background-color: #e9ecef; }
+    .keypad-button.key-func { background-color: #e9ecef; color: #495057; }
+    .keypad-button.key-func:active { background-color: #dee2e6; }
+    .keypad-button.key-ac { background-color: #f1aeb5; color: #721c24; font-weight: bold; }
+    .keypad-button.key-ac:active { background-color: #ec8a96; }
+    .keypad-button.key-equals { background-color: #a3cfbb; color: #155724; font-weight: bold; }
+    .keypad-button.key-equals:active { background-color: #84c0a0; }
+    /* Adjust nav buttons for better balance */
+    .keypad-button.key-nav { font-size: 1.5rem; padding: 0; }
+    .keypad-button.key-nav[style*="grid-row: span 2"] { font-size: 1.8rem; }
+
+  </style>
+</head>
+<body>
+  <div class="calculator-wrapper">
+    <div class="content-area">
+        <div class="input-grid-container">
+            <fieldset class="input-grid-fieldset">
+                <legend>Meter Readings</legend>
+                 <div class="input-grid-row">
+                    <label class="input-grid-label" for="ap_csm">Ap</label>
+                    <input type="text" inputmode="decimal" id="ap_csm" class="input-grid-input" readonly onfocus="setFocusedInput(this)" placeholder="enter csm">
+                    <input type="text" inputmode="decimal" id="ap_csc" class="input-grid-input" readonly onfocus="setFocusedInput(this)" placeholder="enter csc" aria-label="Ap csc">
+                </div>
+                <div class="input-grid-row">
+                    <label class="input-grid-label" for="aq_csm">Aq</label>
+                    <input type="text" inputmode="decimal" id="aq_csm" class="input-grid-input" readonly onfocus="setFocusedInput(this)" placeholder="enter csm">
+                    <input type="text" inputmode="decimal" id="aq_csc" class="input-grid-input" readonly onfocus="setFocusedInput(this)" placeholder="enter csc" aria-label="Aq csc">
+                </div>
+                <div class="input-grid-row">
+                    <label class="input-grid-label" for="ps_csm">PS</label>
+                    <input type="text" inputmode="decimal" id="ps_csm" class="input-grid-input" readonly onfocus="setFocusedInput(this)" placeholder="enter csm">
+                    <input type="text" inputmode="decimal" id="ps_csc" class="input-grid-input" readonly onfocus="setFocusedInput(this)" placeholder="enter csc" aria-label="PS csc">
+                </div>
+            </fieldset>
+        </div>
+
+        <div id="calculationResults">
+            </div>
+    </div>
+
+    <div id="customKeypad" class="keypad-container">
+        <button class="keypad-button" onclick="handleDigitClick('1')">1</button>
+        <button class="keypad-button" onclick="handleDigitClick('2')">2</button>
+        <button class="keypad-button" onclick="handleDigitClick('3')">3</button>
+        <button class="keypad-button key-func" onclick="handleDelClick()">DEL</button>
+        <button class="keypad-button key-ac" onclick="handleAcClick()">AC</button>
+        <button class="keypad-button" onclick="handleDigitClick('4')">4</button>
+        <button class="keypad-button" onclick="handleDigitClick('5')">5</button>
+        <button class="keypad-button" onclick="handleDigitClick('6')">6</button>
+        <button class="keypad-button key-func key-nav" onclick="navigateInput(-1)" style="grid-row: span 2;">←</button>
+        <button class="keypad-button key-func key-nav" onclick="navigateInput(1)" style="grid-row: span 2;">→</button>
+        <button class="keypad-button" onclick="handleDigitClick('7')">7</button>
+        <button class="keypad-button" onclick="handleDigitClick('8')">8</button>
+        <button class="keypad-button" onclick="handleDigitClick('9')">9</button>
+        <button class="keypad-button" onclick="handleDigitClick('0')" >0</button>
+        <button class="keypad-button key-func" onclick="handleDecimalClick()">.</button>
+        <button class="keypad-button key-equals" onclick="handleEqualsClick()" style="grid-column: span 3;">=</button>
+    </div>
+  </div>
+
+  <script>
+    // JavaScript unchanged from previous correct version
+    let activeInputId = null;
+    const METER_INPUT_IDS = ['ap_csm', 'ap_csc', 'aq_csm', 'aq_csc', 'ps_csm', 'ps_csc'];
+    const RESULTS_DIV_ID = 'calculationResults';
+    const PS_MULTIPLIER = 300;
+
+    // --- Number Formatting ---
+    const formatNumberFullPrecision = (num) => {
+         const numParsed = parseFloat(num);
+         if (isNaN(numParsed)) return '0';
+         const numStr = numParsed.toString();
+         const parts = numStr.split('.');
+         parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+         return parts.join(',');
+    }
+
+    const truncateNumber = (num, places) => {
+        const factor = Math.pow(10, places);
+        return Math.trunc(num * factor) / factor;
+    }
+
+    const formatTruncatedCosPhiResult = (num) => {
+        const truncated = truncateNumber(num, 2);
+        return truncated.toFixed(2).replace('.', ',');
+    }
+
+    const parseInputNumber = (str) => {
+        if (typeof str !== 'string' || str.trim() === '') return NaN;
+        const cleanedString = str.replace(/\./g, '').replace(',', '.');
+        if (!/^-?\d*(\.\d+)?$/.test(cleanedString) && !/^-?\d+\.?$/.test(cleanedString)) {
+            if (cleanedString === '.') return NaN;
+        }
+        const parsed = parseFloat(cleanedString);
+        return isNaN(parsed) || !isFinite(parsed) ? NaN : parsed;
+    }
+
+    // --- Input Handling ---
+    function setFocusedInput(element) {
+        if (activeInputId) {
+            const oldEl = document.getElementById(activeInputId);
+            if (oldEl) oldEl.classList.remove('input-focused');
+        }
+        if (element && METER_INPUT_IDS.includes(element.id)) {
+            activeInputId = element.id;
+            element.classList.add('input-focused');
+            element.classList.remove('input-error');
+        } else {
+            activeInputId = null;
+        }
+    }
+
+    function getVisibleInputIds() {
+        return METER_INPUT_IDS;
+    }
+
+    // --- Validation ---
+    function validateInputs(inputIds, resultElementId) {
+        const resultElement = document.getElementById(resultElementId);
+        const inputs = {};
+        const invalidInputIds = [];
+        let errorMessages = [];
+
+        inputIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('input-error');
+        });
+        resultElement.innerHTML = "";
+        resultElement.style.display = 'none';
+
+        for (const id of inputIds) {
+            const inputElement = document.getElementById(id);
+            if (!inputElement) {
+                console.error(`System Error: Input element with ID '${id}' not found.`);
+                errorMessages.push(`SYSTEM ERROR: Missing input field (${id}).`);
+                invalidInputIds.push(id + "_missing");
+                continue;
+            }
+
+            const value = inputElement.value.trim();
+            const parsedValue = parseInputNumber(value);
+
+            if (value === '') {
+                invalidInputIds.push(id);
+                errorMessages.push(`Input required for field ${id.replace('_', ' ').toUpperCase()}.`);
+            } else if (isNaN(parsedValue)) {
+                invalidInputIds.push(id);
+                errorMessages.push(`Invalid number format in field ${id.replace('_', ' ').toUpperCase()}.`);
+            } else if (parsedValue < 0) {
+                invalidInputIds.push(id);
+                errorMessages.push(`Negative values not allowed in field ${id.replace('_', ' ').toUpperCase()}.`);
+            } else {
+                inputs[id] = parsedValue;
+            }
+        }
+
+        const checkPair = (csmId, cscId, pairLabel) => {
+            const csmInput = inputs[csmId];
+            const cscInput = inputs[cscId];
+            let pairError = false;
+
+            if (csmInput !== undefined && cscInput !== undefined) {
+                if (csmInput < cscInput) {
+                     errorMessages.push(`ERROR (${pairLabel}): CSM value (${formatNumberFullPrecision(csmInput)}) must be >= CSC value (${formatNumberFullPrecision(cscInput)}).`);
+                    if (!invalidInputIds.includes(csmId)) invalidInputIds.push(csmId);
+                    if (!invalidInputIds.includes(cscId)) invalidInputIds.push(cscId);
+                    pairError = true;
+                }
+            } else {
+                 if (invalidInputIds.includes(csmId) || invalidInputIds.includes(cscId)) {
+                    pairError = true;
+                 }
+            }
+             return pairError;
+        };
+
+        let csmCscError = false;
+        csmCscError = checkPair('ap_csm', 'ap_csc', 'Ap') || csmCscError;
+        csmCscError = checkPair('aq_csm', 'aq_csc', 'Aq') || csmCscError;
+        csmCscError = checkPair('ps_csm', 'ps_csc', 'PS') || csmCscError;
+
+        if (invalidInputIds.length > 0) {
+            let finalErrorMessage = '';
+            if (errorMessages.length > 3) {
+                 finalErrorMessage = "Multiple errors. Please check highlighted fields.";
+            } else {
+                 finalErrorMessage = errorMessages.join('<br>');
+            }
+            resultElement.innerHTML = `<span class="error-message">${finalErrorMessage}</span>`;
+            resultElement.style.display = 'flex';
+            invalidInputIds.forEach(id => {
+                 if (!id.endsWith("_missing")) {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.add('input-error');
+                 }
+            });
+            return null;
+        }
+        return inputs;
+    }
+
+    // --- Keypad Event Handlers ---
+    function handleDigitClick(digit) {
+        if (!activeInputId) return;
+        const el = document.getElementById(activeInputId);
+        if (el) {
+            el.classList.remove('input-error');
+            el.value += digit;
+            clearResultDisplayIfNeeded();
+        }
+    }
+
+    function handleDecimalClick() {
+        if (!activeInputId) return;
+        const el = document.getElementById(activeInputId);
+        if (el && !el.value.includes('.')) {
+            el.classList.remove('input-error');
+            el.value += (el.value === '') ? '0.' : '.';
+            clearResultDisplayIfNeeded();
+        }
+    }
+
+    function handleDelClick() {
+        if (!activeInputId) return;
+        const el = document.getElementById(activeInputId);
+        if (el && el.value.length > 0) {
+            el.value = el.value.slice(0, -1);
+            el.classList.remove('input-error');
+            clearResultDisplayIfNeeded();
+        }
+    }
+
+    function handleEqualsClick() {
+        calculateCosPhiFromReadings();
+    }
+
+    function handleAcClick() {
+        clearMeterInputsAndResults();
+        const firstInput = document.getElementById(METER_INPUT_IDS[0]);
+        if (firstInput) {
+            setFocusedInput(firstInput);
+        }
+    }
+
+    function navigateInput(direction) {
+        const visibleInputs = getVisibleInputIds();
+        if (!visibleInputs.length) return;
+        let currentIndex = activeInputId ? visibleInputs.indexOf(activeInputId) : -1;
+        if (currentIndex === -1) {
+            currentIndex = (direction === 1) ? -1 : visibleInputs.length;
+        }
+        let nextIndex = currentIndex + direction;
+        if (nextIndex < 0) {
+            nextIndex = visibleInputs.length - 1;
+        } else if (nextIndex >= visibleInputs.length) {
+            nextIndex = 0;
+        }
+        const nextInput = document.getElementById(visibleInputs[nextIndex]);
+        if (nextInput) {
+            setFocusedInput(nextInput);
+        }
+    }
+
+    // --- Clearing Functions ---
+     function clearResultDisplayIfNeeded() {
+         const resultElement = document.getElementById(RESULTS_DIV_ID);
+         if (resultElement && resultElement.style.display !== 'none') {
+              resultElement.innerHTML = "";
+              resultElement.style.display = 'none';
+         }
+     }
+
+    function clearMeterInputsAndResults() {
+        METER_INPUT_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = "";
+                el.classList.remove('input-error', 'input-focused');
+            }
+        });
+        const resultElement = document.getElementById(RESULTS_DIV_ID);
+        if(resultElement) {
+            resultElement.innerHTML = "";
+            resultElement.style.display = 'none';
+        }
+        activeInputId = null;
+    }
+
+    // --- Calculation Function ---
+    function calculateCosPhiFromReadings() {
+        const resultElement = document.getElementById(RESULTS_DIV_ID);
+        const inputs = validateInputs(METER_INPUT_IDS, RESULTS_DIV_ID);
+        if (!inputs) {
+            return;
+        }
+
+        const diffAp = inputs.ap_csm - inputs.ap_csc;
+        const diffAq = inputs.aq_csm - inputs.aq_csc;
+        const psUsageAdjusted = (inputs.ps_csm - inputs.ps_csc) * PS_MULTIPLIER;
+        const excessPowerUsage = diffAp - psUsageAdjusted;
+
+        const activePowerP = diffAp;
+        const reactivePowerQ = diffAq;
+        const apparentPowerS = Math.sqrt(activePowerP * activePowerP + reactivePowerQ * reactivePowerQ);
+
+        let cosPhi = 0;
+        let cosPhiExpression = '';
+        let formattedCosPhiResult = '';
+
+        if (apparentPowerS === 0) {
+             if (activePowerP === 0 && reactivePowerQ === 0) {
+                 cosPhi = 1;
+                 formattedCosPhiResult = `1,00`;
+                 cosPhiExpression = `(P=0, Q=0)`;
+             } else {
+                 cosPhi = NaN;
+                 formattedCosPhiResult = `Error`;
+                 cosPhiExpression = `(S=0, P or Q != 0)`;
+             }
+        } else {
+             cosPhi = activePowerP / apparentPowerS;
+             const pStr = formatNumberFullPrecision(activePowerP);
+             const qStr = formatNumberFullPrecision(reactivePowerQ);
+             cosPhiExpression = `${pStr} / &#8730;(${pStr}&#178; + ${qStr}&#178;)`; // √, ²
+             formattedCosPhiResult = formatTruncatedCosPhiResult(cosPhi);
+        }
+
+        const formattedDiffAp = formatNumberFullPrecision(diffAp);
+        const formattedDiffAq = formatNumberFullPrecision(diffAq);
+        const formattedPsUsage = formatNumberFullPrecision(psUsageAdjusted);
+        const formattedEpsUsage = formatNumberFullPrecision(excessPowerUsage);
+
+        let resultHTML = `
+            <div class="result-line">
+                <span class="result-label">Diff Ap:</span>
+                <span class="result-value">${formattedDiffAp}</span><span class="result-unit">kW</span>
+            </div>
+            <div class="result-line">
+                <span class="result-label">Diff Aq:</span>
+                <span class="result-value">${formattedDiffAq}</span><span class="result-unit">kVAr</span>
+            </div>
+            <div class="result-line">
+                <span class="result-label">PS Usage:</span>
+                <span class="result-value">${formattedPsUsage}</span><span class="result-unit">kW</span>
+            </div>
+            <div class="result-line">
+                <span class="result-label">EPS Usage:</span>
+                <span class="result-value">${formattedEpsUsage}</span><span class="result-unit">kW</span>
+            </div>
+            <hr style="border: none; border-top: 1px solid #ced4da; margin: 6px 0;">
+            <div class="result-line cosphi-line">
+                <span class="cosphi-label">COS φ =</span>
+                <span class="cosphi-expression">${cosPhiExpression}</span>
+                <span class="cosphi-equals">=</span>
+                <span class="cosphi-result">${formattedCosPhiResult}</span>
+            </div>
+        `;
+
+        resultElement.innerHTML = resultHTML;
+        resultElement.style.display = 'flex';
+    }
+
+    // --- Initial Setup ---
+    document.addEventListener('DOMContentLoaded', () => {
+        clearMeterInputsAndResults();
+        const firstInput = document.getElementById(METER_INPUT_IDS[0]);
+        if (firstInput) {
+            setTimeout(() => setFocusedInput(firstInput), 100);
+        }
+    });
+  </script>
+
+</body>
+</html>
