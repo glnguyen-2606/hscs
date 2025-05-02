@@ -1,2 +1,488 @@
-# Cack.html
-Hệ số công suất
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tính COSφ</title>
+  <style>
+    /* --- Reset & Basic --- */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: calc(14px + 0.2vw); height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      background-color: #dce4e8; display: flex; justify-content: center; align-items: center;
+      min-height: 100%; padding: 5px;
+      /* Chống scroll trên body khi keypad hiện */
+      overflow: hidden;
+    }
+    /* --- Main Wrapper --- */
+    .calculator-wrapper {
+      background-color: #f8f9fa; border: 1px solid #ced4da; border-radius: 8px;
+      overflow: hidden; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+      width: 100%; max-width: 400px; display: flex; flex-direction: column;
+      /* Chiều cao linh hoạt theo viewport, có giới hạn max */
+      height: calc(100vh - 10px); max-height: 800px; /* Tăng max-height nhẹ */
+    }
+
+    /* --- Content Area --- */
+    .content-area {
+        background-color: #f8f9fa; padding: 15px 12px 10px; flex-grow: 1;
+        /* Cho phép scroll nội dung nếu không đủ chỗ */
+        overflow-y: auto;
+        position: relative; /* Cần cho positioning con tuyệt đối nếu có */
+        min-height: 0; /* Quan trọng cho flex-grow hoạt động đúng trong flex-column */
+    }
+
+    /* --- Khu vực nhập liệu lưới (Giữ nguyên) --- */
+    .input-grid-container {
+        margin-bottom: 15px;
+    }
+    .input-grid-fieldset {
+        border: 1px solid #ced4da; border-radius: 6px; padding: 10px 12px 12px;
+        background-color: #fff;
+    }
+    .input-grid-fieldset legend {
+        font-weight: 600; color: #495057; padding: 0 5px; margin-left: 5px;
+        font-size: 0.95rem; background-color: #fff;
+    }
+    .input-grid-row {
+        display: grid;
+        grid-template-columns: 40px 0.4fr 0.4fr;
+        gap: 6px;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+     .input-grid-row:last-child { margin-bottom: 0; }
+    .input-grid-label {
+      font-weight: 500; color: #495057; font-size: 0.9rem; text-align: right;
+      padding-right: 5px;
+    }
+    .input-grid-input {
+      width: 100%;
+      padding: 5px 8px; text-align: right; border: 1px solid #ced4da;
+      border-radius: 4px; transition: all 0.1s ease; vertical-align: middle;
+      background-color: #e9ecef;
+      cursor: pointer;
+      font-size: 0.9rem; font-weight: 500;
+    }
+    .input-grid-input:focus, .input-grid-input.input-focused {
+      border-color: #0056b3;
+      box-shadow: 0 0 0 2px rgba(0, 86, 179, 0.3);
+      outline: none;
+      background-color: #e7f3ff;
+    }
+    .input-grid-input.input-error {
+        background-color: #f8d7da !important;
+        border-color: #f5c6cb !important;
+    }
+    .input-grid-input::placeholder {
+       font-style: italic; color: #6c757d; font-size: 0.8rem; font-weight: 400;
+    }
+
+    /* --- Khu vực hiển thị kết quả --- */
+    #calculationResults {
+      background-color: #e9ecef; border: 1px solid #ced4da; padding: 10px 12px;
+      border-radius: 6px; margin-top: 10px; min-height: 60px; /* Giảm min-height lại chút */
+      display: none;
+      flex-direction: column; align-items: flex-start;
+      justify-content: center; text-align: left;
+      color: #212529; font-size: 0.9rem; overflow-wrap: break-word;
+      word-break: break-all; line-height: 1.6; /* Tăng nhẹ line-height */
+    }
+     .result-line { display: block; width: 100%; margin-bottom: 4px; font-weight: 500; }
+     .result-line:last-child { margin-bottom: 0; }
+     .result-label { display: inline-block; width: 70px; font-weight: 600; color: #495057;}
+     .result-value { font-weight: bold; color: #0056b3; }
+     .result-unit { font-size: 0.85rem; color: #6c757d; padding-left: 4px;}
+     /* CSS cho dòng Cos Phi đặc biệt */
+     .cosphi-line { display: flex; flex-wrap: wrap; /* Cho phép xuống dòng nếu quá dài */ align-items: baseline; }
+     .cosphi-label { font-weight: 600; color: #495057; margin-right: 5px; flex-shrink: 0; /* Không co lại */ }
+     .cosphi-expression { font-size: 0.85rem; color: #6c757d; margin-right: 5px; word-break: break-all; }
+     .cosphi-equals { font-weight: 600; color: #495057; margin-right: 5px; }
+     .cosphi-result { font-weight: bold; color: #155724; }
+
+    #calculationResults .error-message {
+        color: #dc3545; font-weight: 500; font-size: 0.9rem;
+        text-align: center; width: 100%; display: block;
+    }
+
+
+    /* --- Bàn phím tùy chỉnh --- */
+    .keypad-container {
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      /* 2. Chiều cao bàn phím ~35% của wrapper, rows tự chia */
+      height: 35%; /* Tăng chiều cao */
+      grid-template-rows: repeat(4, 1fr); /* Chia đều chiều cao cho các hàng */
+      gap: 6px; /* Tăng gap nhẹ */
+      padding: 10px; /* Tăng padding nhẹ */
+      background-color: #ced4da;
+      flex-shrink: 0; /* Không co lại khi content lớn */
+      border-top: 1px solid #adb5bd;
+    }
+    .keypad-button {
+      /* Padding tự động cân đối hơn nhờ grid row 1fr */
+      padding: 5px;
+      font-size: 1.1rem; /* Tăng nhẹ font size */
+      font-weight: 500; text-align: center;
+      border: none; border-radius: 5px; background-color: #f8f9fa; color: #343a40;
+      cursor: pointer; box-shadow: 0 2px 3px rgba(0,0,0,0.1); /* Tăng nhẹ shadow */
+      transition: background-color 0.1s ease;
+      display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: rgba(0,0,0,0.05);
+    }
+    .keypad-button:active { background-color: #e9ecef; }
+    .keypad-button.key-func { background-color: #e9ecef; color: #495057; }
+    .keypad-button.key-func:active { background-color: #dee2e6; }
+    .keypad-button.key-ac { background-color: #f1aeb5; color: #721c24; font-weight: bold; }
+    .keypad-button.key-ac:active { background-color: #ec8a96; }
+    .keypad-button.key-equals { background-color: #a3cfbb; color: #155724; font-weight: bold; }
+    .keypad-button.key-equals:active { background-color: #84c0a0; }
+    /* Điều chỉnh nút điều hướng cho cân đối hơn */
+    .keypad-button.key-nav { font-size: 1.5rem; padding: 0; }
+    .keypad-button.key-nav[style*="grid-row: span 2"] { font-size: 1.8rem; } /* Tăng size mũi tên */
+
+  </style>
+</head>
+<body>
+  <div class="calculator-wrapper">
+    <div class="content-area">
+        <div class="input-grid-container">
+            <fieldset class="input-grid-fieldset">
+                <legend>Nhập chỉ số đồng hồ</legend>
+                 <div class="input-grid-row">
+                    <span class="input-grid-label">Ap</span>
+                    <input type="text" inputmode="decimal" id="ap_csm" class="input-grid-input" readonly onfocus="setFocusedInput(this)" placeholder="nhập csm">
+                    <input type="text" inputmode="decimal" id="ap_csc" class="input-grid-input" readonly onfocus="setFocusedInput(this)" placeholder="nhập csc">
+                </div>
+                <div class="input-grid-row">
+                    <span class="input-grid-label">Aq</span>
+                    <input type="text" inputmode="decimal" id="aq_csm" class="input-grid-input" readonly onfocus="setFocusedInput(this)" placeholder="nhập csm">
+                    <input type="text" inputmode="decimal" id="aq_csc" class="input-grid-input" readonly onfocus="setFocusedInput(this)" placeholder="nhập csc">
+                </div>
+                <div class="input-grid-row">
+                    <span class="input-grid-label">PS</span>
+                    <input type="text" inputmode="decimal" id="ps_csm" class="input-grid-input" readonly onfocus="setFocusedInput(this)" placeholder="nhập csm">
+                    <input type="text" inputmode="decimal" id="ps_csc" class="input-grid-input" readonly onfocus="setFocusedInput(this)" placeholder="nhập csc">
+                </div>
+            </fieldset>
+        </div>
+
+        <div id="calculationResults">
+            </div>
+    </div>
+
+    <div id="customKeypad" class="keypad-container">
+        <button class="keypad-button" onclick="handleDigitClick('1')">1</button>
+        <button class="keypad-button" onclick="handleDigitClick('2')">2</button>
+        <button class="keypad-button" onclick="handleDigitClick('3')">3</button>
+        <button class="keypad-button key-func" onclick="handleDelClick()">DEL</button>
+        <button class="keypad-button key-ac" onclick="handleAcClick()">AC</button>
+        <button class="keypad-button" onclick="handleDigitClick('4')">4</button>
+        <button class="keypad-button" onclick="handleDigitClick('5')">5</button>
+        <button class="keypad-button" onclick="handleDigitClick('6')">6</button>
+        <button class="keypad-button key-func key-nav" onclick="navigateInput(-1)" style="grid-row: span 2;">←</button>
+        <button class="keypad-button key-func key-nav" onclick="navigateInput(1)" style="grid-row: span 2;">→</button>
+        <button class="keypad-button" onclick="handleDigitClick('7')">7</button>
+        <button class="keypad-button" onclick="handleDigitClick('8')">8</button>
+        <button class="keypad-button" onclick="handleDigitClick('9')">9</button>
+        <button class="keypad-button" onclick="handleDigitClick('0')" >0</button>
+        <button class="keypad-button key-func" onclick="handleDecimalClick()">.</button> <button class="keypad-button key-equals" onclick="handleEqualsClick()" style="grid-column: span 3;">=</button>
+    </div>
+  </div>
+
+  <script>
+    let activeInputId = null;
+    const METER_INPUT_IDS = ['ap_csm', 'ap_csc', 'aq_csm', 'aq_csc', 'ps_csm', 'ps_csc'];
+    const RESULTS_DIV_ID = 'calculationResults';
+
+    // --- Number Formatting ---
+    // Format số với dấu phẩy thập phân, dấu chấm hàng nghìn, độ chính xác đầy đủ
+    const formatNumberFullPrecision = (num) => {
+         const numParsed = parseFloat(num);
+         if (isNaN(numParsed)) return '0';
+         const numStr = numParsed.toString();
+         const parts = numStr.split('.');
+         parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+         return parts.join(',');
+    }
+
+    // 1. Helper cắt bỏ số thập phân (không làm tròn)
+    const truncateNumber = (num, places) => {
+        const factor = Math.pow(10, places);
+        // Sử dụng Math.trunc để cắt bỏ phần thập phân thừa
+        return Math.trunc(num * factor) / factor;
+    }
+
+    // 1. Format kết quả Cos Phi: Cắt bỏ còn 2 chữ số thập phân, hiển thị dạng 0,XX
+    const formatTruncatedCosPhiResult = (num) => {
+        const truncated = truncateNumber(num, 2);
+        // Dùng toFixed(2) SAU KHI cắt để đảm bảo luôn có 2 chữ số (vd: 0.9 -> 0.90)
+        // Sau đó đổi dấu chấm thành dấu phẩy
+        return truncated.toFixed(2).replace('.', ',');
+    }
+
+
+    // Parse số từ chuỗi nhập (cho phép dấu phẩy hoặc chấm làm thập phân khi nhập)
+    const parseInputNumber = (str) => {
+        if (typeof str !== 'string') return NaN;
+        // Xóa dấu chấm hàng nghìn (nếu có), thay dấu phẩy thập phân bằng dấu chấm chuẩn
+        return parseFloat(str.replace(/\./g, '').replace(',', '.'));
+    }
+
+
+    // --- Input Handling ---
+    function setFocusedInput(element) {
+      if (activeInputId) {
+          const oldEl = document.getElementById(activeInputId);
+          if (oldEl) oldEl.classList.remove('input-focused');
+      }
+      if (element && METER_INPUT_IDS.includes(element.id)) {
+          activeInputId = element.id;
+          element.classList.add('input-focused');
+          element.classList.remove('input-error');
+      } else {
+          activeInputId = null;
+      }
+    }
+
+    function getVisibleInputIds() { return METER_INPUT_IDS; }
+
+    // --- Validation ---
+    function validateInputsRequired(inputIds, resultElementId) {
+        const resultElement = document.getElementById(resultElementId);
+        const inputs = {};
+        const invalidInputIds = [];
+        let isErrorDisplayed = false;
+
+        for (const id of inputIds) {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('input-error');
+        }
+        resultElement.innerHTML = "";
+        resultElement.style.display = 'none';
+
+        for (const id of inputIds) {
+            const inputElement = document.getElementById(id);
+            if (!inputElement) {
+                console.error(`Lỗi: Không tìm thấy ID '${id}'.`);
+                if (!isErrorDisplayed) {
+                     resultElement.innerHTML = `<span class="error-message">LỖI HỆ THỐNG: Thiếu ô nhập liệu.</span>`;
+                     resultElement.style.display = 'flex'; isErrorDisplayed = true;
+                 }
+                invalidInputIds.push(id + "_missing"); continue;
+            }
+
+            const value = inputElement.value.trim();
+            let parsedValue = NaN;
+
+             // Cho phép nhập dấu chấm hoặc phẩy làm thập phân
+             if (value === '' || value === '.' || value === ',') {
+                 invalidInputIds.push(id);
+             } else {
+                  // Parse chấp nhận cả ',' và '.' làm thập phân
+                  const valueForParsing = value.replace(',', '.');
+                  parsedValue = parseFloat(valueForParsing);
+                  if (isNaN(parsedValue) || parsedValue < 0) {
+                      invalidInputIds.push(id);
+                  } else {
+                      inputs[id] = parsedValue;
+                  }
+             }
+        }
+
+         const checkCSMvsCSC = (csmId, cscId) => {
+             if (inputs.hasOwnProperty(csmId) && inputs.hasOwnProperty(cscId)) {
+                  if (inputs[csmId] < inputs[cscId]) {
+                      const csmEl = document.getElementById(csmId);
+                      const cscEl = document.getElementById(cscId);
+                      if (csmEl) csmEl.classList.add('input-error');
+                      if (cscEl) cscEl.classList.add('input-error');
+                      if (!isErrorDisplayed) {
+                         resultElement.innerHTML = `<span class="error-message">LỖI: CSM PHẢI >= CSC!</span>`;
+                         resultElement.style.display = 'flex'; isErrorDisplayed = true;
+                     } return true;
+                 }
+             } else if (invalidInputIds.includes(csmId) || invalidInputIds.includes(cscId)) {
+                const csmEl = document.getElementById(csmId);
+                const cscEl = document.getElementById(cscId);
+                if (invalidInputIds.includes(csmId) && csmEl) csmEl.classList.add('input-error');
+                if (invalidInputIds.includes(cscId) && cscEl) cscEl.classList.add('input-error');
+                 return true; // Lỗi nếu thiếu 1 trong cặp
+             } return false;
+         };
+
+        let csmCscError = false;
+        csmCscError = checkCSMvsCSC('ap_csm', 'ap_csc') || csmCscError;
+        csmCscError = checkCSMvsCSC('aq_csm', 'aq_csc') || csmCscError;
+        csmCscError = checkCSMvsCSC('ps_csm', 'ps_csc') || csmCscError;
+
+        if (csmCscError) { return null; }
+
+        if (invalidInputIds.length > 0 && !isErrorDisplayed) {
+            resultElement.innerHTML = `<span class="error-message">VUI LÒNG NHẬP ĐẦY ĐỦ & HỢP LỆ!</span>`;
+             resultElement.style.display = 'flex';
+             for (const id of invalidInputIds) {
+                  if (!id.endsWith("_missing")) {
+                      const el = document.getElementById(id); if (el) el.classList.add('input-error');
+                  }
+             } return null;
+        } else if (invalidInputIds.length > 0 && isErrorDisplayed) { return null; }
+
+        return inputs;
+    }
+
+    // --- Keypad Event Handlers ---
+    function handleDigitClick(digit) {
+        if (!activeInputId) return;
+        const el = document.getElementById(activeInputId);
+        if (el) { el.classList.remove('input-error'); el.value += digit; clearResultDisplayIfNeeded(); }
+    }
+
+    function handleDecimalClick() {
+        if (!activeInputId) return;
+        const el = document.getElementById(activeInputId);
+        // Nhập dấu "." vào ô input, việc hiển thị dấu "," sẽ do formatNumber xử lý
+        if (el && !el.value.includes('.')) { // Chỉ cho phép 1 dấu thập phân
+            el.classList.remove('input-error');
+            el.value += (el.value === '') ? '0.' : '.'; // Luôn thêm dấu "."
+            clearResultDisplayIfNeeded();
+        }
+    }
+
+    function handleDelClick() {
+        if (!activeInputId) return;
+        const el = document.getElementById(activeInputId);
+        if (el) {
+            el.value = el.value.slice(0, -1);
+            // Tạm thời bỏ kiểm tra lỗi phức tạp khi DEL
+            el.classList.remove('input-error');
+            clearResultDisplayIfNeeded();
+        }
+    }
+
+    function handleEqualsClick() { calculateCosPhiFromReadings(); }
+
+    function handleAcClick() {
+        clearMeterInputsAndResults();
+        const firstInput = document.getElementById(METER_INPUT_IDS[0]);
+        if (firstInput) { setFocusedInput(firstInput); }
+    }
+
+    function navigateInput(direction) {
+        const visibleInputs = getVisibleInputIds();
+        if (!visibleInputs.length) return;
+        let currentIndex = activeInputId ? visibleInputs.indexOf(activeInputId) : -1;
+        if (currentIndex === -1) { currentIndex = (direction === 1) ? -1 : 0; }
+        let nextIndex = currentIndex + direction;
+        if (nextIndex < 0) nextIndex = visibleInputs.length - 1;
+        else if (nextIndex >= visibleInputs.length) nextIndex = 0;
+        const nextInput = document.getElementById(visibleInputs[nextIndex]);
+        if (nextInput) { setFocusedInput(nextInput); }
+    }
+
+    // --- Clearing Functions ---
+     function clearResultDisplayIfNeeded() {
+         const resultElement = document.getElementById(RESULTS_DIV_ID);
+         if (resultElement && resultElement.style.display !== 'none') {
+              resultElement.innerHTML = ""; resultElement.style.display = 'none';
+         }
+     }
+
+    function clearMeterInputsAndResults() {
+        METER_INPUT_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.value = ""; el.classList.remove('input-error', 'input-focused'); }
+        });
+        const resultElement = document.getElementById(RESULTS_DIV_ID);
+        if(resultElement) { resultElement.innerHTML = ""; resultElement.style.display = 'none'; }
+        activeInputId = null;
+    }
+
+    // --- Calculation Function ---
+    function calculateCosPhiFromReadings() {
+        const resultElement = document.getElementById(RESULTS_DIV_ID);
+        const inputs = validateInputsRequired(METER_INPUT_IDS, RESULTS_DIV_ID);
+        if (!inputs) { return; } // Dừng nếu validation lỗi
+
+        const hieuAp = inputs.ap_csm - inputs.ap_csc;
+        const hieuAq = inputs.aq_csm - inputs.aq_csc;
+        const psSD = (inputs.ps_csm - inputs.ps_csc) * 300;
+        const epsSD = hieuAp - psSD;
+
+        const P_cosphi = hieuAp;
+        const Q_cosphi = hieuAq;
+        const S = Math.sqrt(P_cosphi * P_cosphi + Q_cosphi * Q_cosphi);
+
+        let cosPhi = 0;
+        let cosPhiExpr = '';
+        let cosPhiResultStr = ''; // Chuỗi kết quả đã cắt bỏ và format
+
+        if (S === 0) {
+             if (P_cosphi === 0 && Q_cosphi === 0) {
+                 cosPhi = 1;
+                 cosPhiResultStr = `1,00`; // Hiển thị 1,00
+                 cosPhiExpr = `(P=0, Q=0)`;
+             } else {
+                 cosPhi = 0; // Trường hợp lỗi S=0 nhưng P,Q!=0
+                 cosPhiResultStr = `Lỗi`;
+                 cosPhiExpr = `(S=0)`;
+             }
+        } else {
+             cosPhi = P_cosphi / S;
+             // Format P, Q trong công thức với độ chính xác đầy đủ
+             const P_str = formatNumberFullPrecision(P_cosphi);
+             const Q_str = formatNumberFullPrecision(Q_cosphi);
+             cosPhiExpr = `${P_str} / √(${P_str}² + ${Q_str}²)`;
+             // Format kết quả Cos Phi: cắt 2 số TP, format 0,XX
+             cosPhiResultStr = formatTruncatedCosPhiResult(cosPhi);
+        }
+
+        // Format các kết quả khác với độ chính xác đầy đủ
+        const hieuApStr = formatNumberFullPrecision(hieuAp);
+        const hieuAqStr = formatNumberFullPrecision(hieuAq);
+        const psSDStr = formatNumberFullPrecision(psSD);
+        const epsSDStr = formatNumberFullPrecision(epsSD);
+
+        // 1. Build HTML kết quả với định dạng Cos Phi mới
+        let resultHTML = `
+            <div class="result-line">
+                <span class="result-label">Hiệu Ap:</span>
+                <span class="result-value">${hieuApStr}</span><span class="result-unit">kW</span>
+            </div>
+            <div class="result-line">
+                <span class="result-label">Hiệu Aq:</span>
+                <span class="result-value">${hieuAqStr}</span><span class="result-unit">kVAr</span>
+            </div>
+            <div class="result-line">
+                <span class="result-label">PS SD:</span>
+                <span class="result-value">${psSDStr}</span><span class="result-unit">kW</span>
+            </div>
+            <div class="result-line">
+                <span class="result-label">EPS SD:</span>
+                <span class="result-value">${epsSDStr}</span><span class="result-unit">kW</span>
+            </div>
+            <hr style="border: none; border-top: 1px solid #ced4da; margin: 6px 0;">
+            <div class="result-line cosphi-line">
+                <span class="cosphi-label">COS φ =</span>
+                <span class="cosphi-expression">${cosPhiExpr}</span>
+                <span class="cosphi-equals">=</span>
+                <span class="cosphi-result">${cosPhiResultStr}</span>
+            </div>
+        `;
+
+        resultElement.innerHTML = resultHTML;
+        resultElement.style.display = 'flex';
+    }
+
+    // --- Initial Setup ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const firstInput = document.getElementById(METER_INPUT_IDS[0]);
+        if (firstInput) { setTimeout(() => setFocusedInput(firstInput), 50); }
+        clearMeterInputsAndResults(); // Đảm bảo sạch sẽ khi tải
+    });
+  </script>
+
+</body>
+</html>
+
